@@ -1,0 +1,15 @@
+[build]
+  functions = "netlify/functions"
+
+[build.environment]
+  SECRETS_SCAN_OMIT_PATHS = "netlify/functions/claude.mjs"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+
+[[redirects]]
+  from = "/netlify/*"
+  to = "/index.html"
+  status = 404

@@ -1,0 +1,27 @@
+async function callClaude(prompt) {
+  try {
+    // Point to your local Vercel serverless function endpoint
+    var response = await fetch("/api/claude", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt: prompt })
+    });
+
+    var data = await response.json();
+
+    // Handle error responses from proxy securely and cleanly
+    if (data.error) {
+      console.error("API Error:", data.error);
+      var errorMsg = typeof data.error === 'object' ? (data.error.message || JSON.stringify(data.error)) : data.error;
+      return "Error: " + errorMsg;
+    }
+
+    // Extract and return the text string from Claude's response structure
+    return data.content[0].text;
+  } catch (e) {
+    console.error("Failed to fetch from proxy:", e);
+    return "Error getting response from server.";
+  }
+}
