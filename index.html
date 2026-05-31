@@ -1,29 +1,1713 @@
-async function callClaude(prompt) {
-  try {
-    var response = await fetch("/api/claude", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ prompt: prompt })
-    });
-
-    var data = await response.json();
-
-    if (data.error) {
-      console.error("API Error:", data.error);
-      var errorMsg = typeof data.error === 'object' ? (data.error.message || JSON.stringify(data.error)) : data.error;
-      return "Error: " + errorMsg;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Baby Food Assistant</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #FFFDF9;
+      color: #2B2A27;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .serif-title {
+      font-family: 'Playfair Display', Georgia, serif;
     }
 
-    // Grab the raw text from Claude's response
-    var rawText = data.content[0].text;
+    /* Custom Scrollbar for premium aesthetic */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FFFDF9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #EFEBE4;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF8C4255;
+    }
+
+    /* Soft floating bounce animation */
+    @keyframes softFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    .floating-accent {
+      animation: softFloat 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
     
-    // Convert the Markdown text into clean HTML layout (headings, lists, bolding)
-    return marked.parse(rawText);
+    // Core brand visual design tokens
+    const C = {
+      cream: "#FFFDF9",
+      dark: "#2B2A27",
+      light: "#EFEBE4",
+      orange: "#FF8C42",
+      pink: "#FF6B6B",
+      purple: "#8A56AC",
+      blue: "#4A90E2",
+      green: "#2ECC71",
+      yellow: "#F1C40F",
+      amber: "#D35400",
+      red: "#E74C3C"
+    };
+
+    // Local Storage keys
+    const SK = {
+      settings: "bfa_settings",
+      cookbook: "bfa_cookbook",
+      tracker: "bfa_tracker",
+      planner: "bfa_planner",
+      ratings: "bfa_ratings"
+    };
+
+    const LANGUAGES = [
+      {code: "English", label: "English"},
+      {code: "Malay", label: "Bahasa Melayu"},
+      {code: "Mandarin", label: "中文"}
+    ];
+
+    const AGES = [
+      {value: "6-8 months", label: "6-8mo", emoji: "🥣", texture: "Smooth purees, single ingredients, thin consistencies"},
+      {value: "9-11 months", label: "9-11mo", emoji: "👶", texture: "Thicker mash, soft minced foods, fine safe finger foods"},
+      {value: "12-14 months", label: "12-14mo", emoji: "🧸", texture: "Chopped soft table foods, mini toddler portions"},
+      {value: "15-18 months", label: "15-18mo", emoji: "🏃", texture: "Bite-sized family meals, varied textures & proteins"},
+      {value: "19-24 months", label: "19-24mo", emoji: "🎨", texture: "Full regular toddler nutrition, structured eating schedules"},
+      {value: "2-3 years", label: "2-3yr", emoji: "🚀", texture: "Bolder spice combinations, standard table foods"},
+      {value: "3-4 years", label: "3-4yr", emoji: "🌟", texture: "Complete childhood nutrition profiles"}
+    ];
+
+    const METHODS = [
+      {value: "Thermomix TM6", label: "Thermomix TM6", emoji: "🤖"},
+      {value: "Stovetop Steaming & Blending", label: "Stovetop / Blender", emoji: "🍳"},
+      {value: "Oven Roasting & Mashing", label: "Oven Roasting", emoji: "🔥"},
+      {value: "no-cook", label: "No-Cook Prep", emoji: "🍌"}
+    ];
+
+    const CARD_COLORS = [
+      {bg: "linear-gradient(135deg, #FF8C42, #FF6B6B)", s: "#FF6B6B44"},
+      {bg: "linear-gradient(135deg, #8A56AC, #4A90E2)", s: "#4A90E244"},
+      {bg: "linear-gradient(135deg, #2ECC71, #4A90E2)", s: "#2ECC7144"},
+      {bg: "linear-gradient(135deg, #F1C40F, #D35400)", s: "#D3540044"},
+      {bg: "linear-gradient(135deg, #FF6B6B, #8A56AC)", s: "#8A56AC44"}
+    ];
+
+    const ALLERGENS = [
+      {value:"nuts", label:"🥜 No Nuts"},
+      {value:"dairy", label:"🥛 No Dairy"},
+      {value:"eggs", label:"🥚 No Eggs"},
+      {value:"gluten", label:"🌾 No Gluten"},
+      {value:"seafood", label:"🦐 No Seafood"},
+      {value:"soy", label:"🫘 No Soy"},
+    ];
+
+    const FOOD_LIBRARY = {
+      "🥕 Vegetables":[
+        {name:"Sweet Potato", minAge:"6-8 months", emoji:"🍠"},
+        {name:"Carrot", minAge:"6-8 months", emoji:"🥕"},
+        {name:"Pumpkin", minAge:"6-8 months", emoji:"🎃"},
+        {name:"Peas", minAge:"6-8 months", emoji:"🟢"},
+        {name:"Spinach", minAge:"6-8 months", emoji:"🌿"},
+        {name:"Broccoli", minAge:"6-8 months", emoji:"🥦"},
+        {name:"Potato", minAge:"6-8 months", emoji:"🥔"},
+        {name:"Zucchini", minAge:"6-8 months", emoji:"🫛"},
+        {name:"Corn", minAge:"9-11 months", emoji:"🌽"},
+        {name:"Tomato", minAge:"9-11 months", emoji:"🍅"},
+        {name:"Beetroot", minAge:"9-11 months", emoji:"🟣"},
+        {name:"Cauliflower", minAge:"6-8 months", emoji:"⚪"},
+      ],
+      "🍎 Fruits":[
+        {name:"Apple", minAge:"6-8 months", emoji:"🍎"},
+        {name:"Pear", minAge:"6-8 months", emoji:"🍐"},
+        {name:"Banana", minAge:"6-8 months", emoji:"🍌"},
+        {name:"Avocado", minAge:"6-8 months", emoji:"🥑"},
+        {name:"Mango", minAge:"6-8 months", emoji:"🥭"},
+        {name:"Papaya", minAge:"6-8 months", emoji:"🍈"},
+        {name:"Peach", minAge:"6-8 months", emoji:"🍑"},
+        {name:"Watermelon", minAge:"9-11 months", emoji:"🍉"},
+        {name:"Blueberry", minAge:"9-11 months", emoji:"🫐"},
+        {name:"Strawberry", minAge:"9-11 months", emoji:"🍓"},
+        {name:"Kiwi", minAge:"9-11 months", emoji:"🥝"},
+        {name:"Orange", minAge:"9-11 months", emoji:"🍊"},
+      ],
+      "🍗 Proteins":[
+        {name:"Chicken", minAge:"6-8 months", emoji:"🍗"},
+        {name:"Beef", minAge:"6-8 months", emoji:"🥩"},
+        {name:"Salmon", minAge:"6-8 months", emoji:"🐟"},
+        {name:"Tofu", minAge:"6-8 months", emoji:"⬜"},
+        {name:"Lentils", minAge:"6-8 months", emoji:"🫘"},
+        {name:"Egg Yolk", minAge:"6-8 months", emoji:"🥚"},
+        {name:"Whole Egg", minAge:"9-11 months", emoji:"🍳"},
+        {name:"Tuna", minAge:"9-11 months", emoji:"🐠"},
+        {name:"Chickpeas", minAge:"9-11 months", emoji:"🟡"},
+        {name:"Peanut Butter", minAge:"6-8 months", emoji:"🥜"},
+      ],
+      "🌾 Grains":[
+        {name:"Rice Cereal", minAge:"6-8 months", emoji:"🍚"},
+        {name:"Oatmeal", minAge:"6-8 months", emoji:"🥣"},
+        {name:"Brown Rice", minAge:"6-8 months", emoji:"🍙"},
+        {name:"Quinoa", minAge:"6-8 months", emoji:"⭐"},
+        {name:"Bread (soft)", minAge:"9-11 months", emoji:"🍞"},
+        {name:"Pasta (soft)", minAge:"9-11 months", emoji:"🍝"},
+      ],
+      "🥛 Dairy":[
+        {name:"Yogurt (plain)", minAge:"6-8 months", emoji:"🥛"},
+        {name:"Cheese (soft)", minAge:"9-11 months", emoji:"🧀"},
+        {name:"Cottage Cheese", minAge:"9-11 months", emoji:"🫙"},
+      ],
+    };
+
+    const AGE_ORDER = ["6-8 months", "9-11 months", "12-14 months", "15-18 months", "19-24 months", "2-3 years", "3-4 years"];
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const MEALS = ["Breakfast", "Lunch", "Dinner"];
+    const MEAL_EMOJIS = {Breakfast: "🌅", Lunch: "☀️", Dinner: "🌙"};
     
-  } catch (e) {
-    console.error("Failed to fetch from proxy:", e);
-    return "Error getting response from server.";
-  }
-}
+    const TAGS = [
+      {id:"favourite", label:"❤️ Favourite", color:"#F72585"},
+      {id:"makeagain", label:"🔄 Make Again", color:"#06D6A0"},
+      {id:"tweak", label:"🔧 Needs Tweaking", color:"#F59E0B"},
+      {id:"quick", label:"⚡ Quick & Easy", color:"#4361EE"},
+      {id:"rejected", label:"😣 Rejected", color:"#EF4444"},
+      {id:"batch", label:"🧊 Batch Cook", color:"#9B5DE5"},
+    ];
+
+    const REACTIONS = [
+      {value:"loved", label:"Loved it!", emoji:"😍", color:"#06D6A0"},
+      {value:"ok", label:"Accepted", emoji:"😊", color:"#4361EE"},
+      {value:"rejected", label:"Rejected", emoji:"😣", color:"#F59E0B"},
+      {value:"allergic", label:"Reaction!", emoji:"⚠️", color:"#EF4444"},
+    ];
+
+    const QUICK_Q = [
+      "My baby refuses to eat!",
+      "Can I freeze homemade baby food?",
+      "Safe soft finger foods to start with",
+      "My baby is constipated!",
+      "How to naturally boost iron?",
+      "Toddler only eats sweet food!"
+    ];
+
+    function isAgeOk(min, cur) {
+      return AGE_ORDER.indexOf(cur) >= AGE_ORDER.indexOf(min);
+    }
+    
+    function daysSince(d) {
+      return Math.floor((Date.now() - new Date(d).getTime()) / 864e5);
+    }
+
+    async function callClaude(prompt) {
+      try {
+        var response = await fetch("/api/claude", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ prompt: prompt })
+        });
+
+        var data = await response.json();
+
+        if (data.error) {
+          console.error("API Error from serverless proxy:", data.error);
+          var errorMsg = typeof data.error === 'object' ? (data.error.message || JSON.stringify(data.error)) : data.error;
+          throw new Error(errorMsg);
+        }
+
+        // Grab the raw text from Claude's response
+        var rawText = data.content[0].text;
+
+        // Custom Safeguard: If the response is a JSON string (for recipes or meal plans), 
+        // return it raw so the app's JSON parser functions properly. 
+        // Otherwise, convert Markdown text into clean HTML layout.
+        var trimmed = rawText.trim();
+        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+          return rawText;
+        }
+
+        return marked.parse(rawText);
+      } catch (e) {
+        console.error("Secure backend call failed:", e);
+        throw e;
+      }
+    }
+
+    var storage = {
+      set: function(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
+      },
+      get: function(key) {
+        try { return JSON.parse(localStorage.getItem(key)); } catch(e) { return null; }
+      }
+    };
+
+    function BabyFoodApp() {
+      // General Core Application state
+      const [mode, setMode] = React.useState("home");
+      const [language, setLanguage] = React.useState("English");
+      const [babyAge, setBabyAge] = React.useState("9-11 months");
+      const [babyName, setBabyName] = React.useState("");
+      const [toast, setToast] = React.useState("");
+      const [showSettings, setShowSettings] = React.useState(false);
+
+      // Recipe Generator State
+      const [recipeStep, setRecipeStep] = React.useState(1);
+      const [method, setMethod] = React.useState(null);
+      const [allergens, setAllergens] = React.useState([]);
+      const [fridgeInput, setFridgeInput] = React.useState("");
+      const [fridgeImage, setFridgeImage] = React.useState(null);
+      const [fridgeImageUrl, setFridgeImageUrl] = React.useState(null);
+      const [recipeList, setRecipeList] = React.useState([]);
+      const [selectedRecipe, setSelectedRecipe] = React.useState(null);
+      const [loadingList, setLoadingList] = React.useState(false);
+      const [loadingDetail, setLoadingDetail] = React.useState(false);
+      const [saving, setSaving] = React.useState(false);
+
+      // Cookbook & Ratings State
+      const [savedRecipes, setSavedRecipes] = React.useState([]);
+      const [ratings, setRatings] = React.useState({});
+      const [cookbookSelected, setCookbookSelected] = React.useState(null);
+      const [showRatingModal, setShowRatingModal] = React.useState(null);
+      const [ratingStars, setRatingStars] = React.useState(0);
+      const [ratingNote, setRatingNote] = React.useState("");
+      const [ratingTags, setRatingTags] = React.useState([]);
+      const [cbSearch, setCbSearch] = React.useState("");
+      const [cbSort, setCbSort] = React.useState("newest");
+      const [cbFilterTag, setCbFilterTag] = React.useState(null);
+
+      // First Foods Tracker State
+      const [trackerLog, setTrackerLog] = React.useState({});
+      const [customFoods, setCustomFoods] = React.useState({});
+      const [trackerView, setTrackerView] = React.useState("foods");
+      const [activeCat, setActiveCat] = React.useState("🥕 Vegetables");
+      const [trackerSearch, setTrackerSearch] = React.useState("");
+      const [selectedFood, setSelectedFood] = React.useState(null);
+      const [logDate, setLogDate] = React.useState(new Date().toISOString().split("T")[0]);
+      const [logReaction, setLogReaction] = React.useState(null);
+      const [logNotes, setLogNotes] = React.useState("");
+      const [showAddCustom, setShowAddCustom] = React.useState(false);
+      const [customFoodName, setCustomFoodName] = React.useState("");
+      const [customFoodCat, setCustomFoodCat] = React.useState("🥕 Vegetables");
+
+      // Weekly Planner & Shopping List State
+      const [plan, setPlan] = React.useState({});
+      const [shoppingList, setShoppingList] = React.useState([]);
+      const [checkedItems, setCheckedItems] = React.useState({});
+      const [plannerView, setPlannerView] = React.useState("plan");
+      const [activeDay, setActiveDay] = React.useState("Monday");
+      const [loadingPlan, setLoadingPlan] = React.useState(false);
+      const [showSlotPicker, setShowSlotPicker] = React.useState(null);
+      const [showCustomMeal, setShowCustomMeal] = React.useState(null);
+      const [customMealName, setCustomMealName] = React.useState("");
+
+      // Expert Nutritionist Chat State
+      const [messages, setMessages] = React.useState([]);
+      const [chatInput, setChatInput] = React.useState("");
+      const [chatLoading, setChatLoading] = React.useState(false);
+      const [chatImage, setChatImage] = React.useState(null);
+      const [chatImageUrl, setChatImageUrl] = React.useState(null);
+
+      const bottomRef = React.useRef(null);
+      const fileRef = React.useRef(null);
+      const chatFileRef = React.useRef(null);
+
+      React.useEffect(() => { loadAll(); }, []);
+      React.useEffect(() => { bottomRef.current?.scrollIntoView({behavior:"smooth"}); }, [messages, chatLoading]);
+
+      async function loadAll() {
+        try {
+          const s = storage.get(SK.settings);
+          if (s) {
+            if (s.language) setLanguage(s.language);
+            if (s.babyAge) setBabyAge(s.babyAge);
+            if (s.babyName) setBabyName(s.babyName);
+          }
+          const cb = storage.get(SK.cookbook); if (cb) setSavedRecipes(cb);
+          const tr = storage.get(SK.tracker); if (tr) { if (tr.log) setTrackerLog(tr.log); if (tr.customFoods) setCustomFoods(tr.customFoods); }
+          const pl = storage.get(SK.planner); if (pl) { if (pl.plan) setPlan(pl.plan); if (pl.shoppingList) setShoppingList(pl.shoppingList); if (pl.checkedItems) setCheckedItems(pl.checkedItems); }
+          const rt = storage.get(SK.ratings); if (rt) setRatings(rt);
+        } catch (e) {
+          console.warn("Storage loading failed slightly, structural defaults fallback applied.");
+        }
+      }
+
+      function saveSettings(u = {}) {
+        storage.set(SK.settings, { language, babyAge, babyName, ...u });
+      }
+      function saveCookbook(d) { storage.set(SK.cookbook, d); }
+      function saveTracker(u = {}) { storage.set(SK.tracker, { log: trackerLog, customFoods, ...u }); }
+      function savePlanner(u = {}) { storage.set(SK.planner, { plan, shoppingList, checkedItems, ...u }); }
+      function saveRatingsStore(d) { storage.set(SK.ratings, d); }
+
+      function showT(msg) { setToast(msg); setTimeout(() => setToast(""), 3000); }
+      function handleLang(l) { setLanguage(l); saveSettings({ language: l }); }
+      function handleAge(a) { setBabyAge(a); saveSettings({ babyAge: a }); }
+      function goHome() { setMode("home"); setRecipeStep(1); setSelectedRecipe(null); setRecipeList([]); }
+
+      function handleFridgeImg(e) {
+        const f = e.target.files[0]; if (!f) return;
+        setFridgeImageUrl(URL.createObjectURL(f));
+        const r = new FileReader();
+        r.onload = () => setFridgeImage({ base64: r.result.split(",")[1], type: f.type });
+        r.readAsDataURL(f);
+      }
+      
+      function handleChatImg(e) {
+        const f = e.target.files[0]; if (!f) return;
+        setChatImageUrl(URL.createObjectURL(f));
+        const r = new FileReader();
+        r.onload = () => setChatImage({ base64: r.result.split(",")[1], type: f.type });
+        r.readAsDataURL(f);
+      }
+
+      async function generateRecipeList() {
+        if (!method) return;
+        setLoadingList(true); setRecipeList([]); setSelectedRecipe(null); setRecipeStep(4);
+        const ai = AGES.find(a => a.value === babyAge);
+        const aText = allergens.length > 0 ? `STRICTLY avoid: ${allergens.join(", ")}.` : "";
+        const mText = method === "Thermomix TM6" ? "Thermomix TM6 with setting speed/temp instructions." : method === "no-cook" ? "No-cook options only." : `${method}.`;
+        const fText = fridgeInput.trim() ? `Incorporate if safe: ${fridgeInput}.` : "Use common nutritional baby food ingredients.";
+        
+        const prompt = `Act as an expert baby food nutritionist and pediatrician. Generate exactly 5 age-appropriate baby food recipe options for a ${babyAge} baby. Respond in ${language}.
+        Texture requirement: ${ai.texture}. Method context: ${mText} ${aText} ${fText}
+        Safety constraints: No honey under 12 months. No whole nuts under 4 years. No added salt/sugar under 12 months.
+        Return ONLY a clean, valid JSON array of objects without markdown formatting or backticks:
+        [{"id":1,"name":"Recipe Name Here","description":"Short single sentence describing taste/texture.","prepTime":"5 min","cookTime":"10 min","difficulty":"Easy","mainIngredients":["ingredient1","ingredient2"],"highlight":"Why it's perfect for development"}]`;
+
+        try {
+          const res = await callClaude(prompt);
+          const cleanedText = res.replace(/```json|```/g, "").trim();
+          setRecipeList(JSON.parse(cleanedText));
+        } catch (e) {
+          showT("Could not generate recipes. Check connection or try again.");
+          setRecipeStep(3);
+        } finally {
+          setLoadingList(false);
+        }
+      }
+
+      async function getRecipeDetail(recipe) {
+        setLoadingDetail(true); setSelectedRecipe({ ...recipe, loading: true });
+        const ai = AGES.find(a => a.value === babyAge);
+        const aText = allergens.length > 0 ? `STRICTLY avoid: ${allergens.join(", ")}.` : "";
+        const mText = method === "Thermomix TM6" ? "Provide precise speed, temperature and time increments for Thermomix TM6." : `Prep steps matching ${method}.`;
+        
+        const prompt = `Act as an expert pediatrician and toddler development chef. Create a highly detailed recipe for "${recipe.name}" for a ${babyAge} baby. Respond in ${language}.
+        Consistencies & Texture: ${ai.texture}. Cooking Method instructions: ${mText} ${aText}
+        Safety rules: No honey under 12 months. No whole nuts under 4 years. No salt or sugar.
+        Return ONLY a clean, valid JSON object without backticks or wrap code strings:
+        {"name":"${recipe.name}","description":"Detailed explanation","ageNote":"Pediatric developmental reason why this helps a baby at ${babyAge}","prepTime":"${recipe.prepTime}","cookTime":"${recipe.cookTime}","servings":"2 portions","difficulty":"${recipe.difficulty}","ingredients":["Portion size and safe ingredient name"],"steps":["Detailed processing instructions including temperature control, equipment metrics, safety warnings"],"nutrition":{"calories":"X kcal","protein":"X g","iron":"X mg","calcium":"X mg"},"tip":"Pro tip for messy eating or saving time","storageNote":"Freezer/Refrigerator storage timeline instructions","nextFoods":["Allergen-safe next ingredients to add tomorrow"]}`;
+
+        try {
+          const res = await callClaude(prompt);
+          const cleanedText = res.replace(/```json|```/g, "").trim();
+          const detailed = JSON.parse(cleanedText);
+          setSelectedRecipe(detailed);
+        } catch (e) {
+          setSelectedRecipe(null);
+          showT("Could not load details. Try again.");
+        } finally {
+          setLoadingDetail(false);
+        }
+      }
+
+      async function saveRecipe() {
+        if (!selectedRecipe) return; setSaving(true);
+        const ts = { ...selectedRecipe, id: Date.now(), savedAt: new Date().toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" }), babyAge };
+        const u = [ts, ...savedRecipes]; setSavedRecipes(u); saveCookbook(u); setSaving(false); showT("Saved to cookbook! 📖");
+      }
+
+      async function deleteRecipe(id) {
+        const u = savedRecipes.filter(r => r.id !== id); setSavedRecipes(u); saveCookbook(u); setCookbookSelected(null); showT("Recipe removed.");
+      }
+
+      function openRatingModal(recipe) {
+        const ex = ratings[recipe.id] || {};
+        setRatingStars(ex.stars || 0);
+        setRatingNote(ex.note || "");
+        setRatingTags(ex.tags || []);
+        setShowRatingModal(recipe);
+      }
+
+      async function saveRating() {
+        if (!showRatingModal) return;
+        const u = { ...ratings, [showRatingModal.id]: { stars: ratingStars, note: ratingNote, tags: ratingTags, ratedAt: new Date().toISOString() } };
+        setRatings(u); saveRatingsStore(u); setShowRatingModal(null); showT("Review saved! ⭐");
+      }
+
+      function getAllFoods() {
+        const a = {};
+        Object.entries(FOOD_LIBRARY).forEach(([c, f]) => { a[c] = [...f]; });
+        Object.entries(customFoods).forEach(([c, f]) => { if (!a[c]) a[c] = []; a[c] = [...a[c], ...f]; });
+        return a;
+      }
+
+      function getStatus(n) {
+        const e = trackerLog[n]; if (!e) return "not_tried";
+        if (e.reaction === "allergic") return "allergic";
+        if (daysSince(e.date) < 3) return "waiting";
+        return e.reaction === "rejected" ? "rejected" : "safe";
+      }
+
+      function getStatusStyle(s) {
+        const m = {
+          not_tried: { bg: "#F8F7F4", color: "#A8A29E", border: "#E7E5E4", label: "Not tried" },
+          waiting: { bg: "#FFFBEB", color: C.amber, border: "#FCD34D", label: "3-day watch" },
+          safe: { bg: "#F0FDF4", color: C.green, border: "#BBF7D0", label: "✅ Safe" },
+          rejected: { bg: "#FEF2F2", color: C.pink, border: "#FECACA", label: "😣 Disliked" },
+          allergic: { bg: "#FFF5F5", color: C.red, border: "#FEB2B2", label: "⚠️ Allergic" }
+        };
+        return m[s] || m.not_tried;
+      }
+
+      function openLogFood(food) {
+        setSelectedFood(food);
+        setLogDate(new Date().toISOString().split("T")[0]);
+        setLogReaction(trackerLog[food.name]?.reaction || null);
+        setLogNotes(trackerLog[food.name]?.notes || "");
+      }
+
+      async function saveLog() {
+        if (!logReaction) return;
+        const l = { ...trackerLog, [selectedFood.name]: { date: logDate, reaction: logReaction, notes: logNotes, emoji: selectedFood.emoji } };
+        setTrackerLog(l); saveTracker({ log: l }); setSelectedFood(null); showT(`${selectedFood.name} entry updated! 📝`);
+      }
+
+      async function removeLog(n) {
+        const l = { ...trackerLog }; delete l[n];
+        setTrackerLog(l); saveTracker({ log: l }); showT("Log entry cleared.");
+      }
+
+      async function addCustomFood() {
+        if (!customFoodName.trim()) return;
+        const nf = { name: customFoodName.trim(), emoji: "🍽", minAge: babyAge, custom: true };
+        const u = { ...customFoods }; if (!u[customFoodCat]) u[customFoodCat] = [];
+        u[customFoodCat] = [...u[customFoodCat], nf];
+        setCustomFoods(u); saveTracker({ customFoods: u });
+        setCustomFoodName(""); setShowAddCustom(false); showT(`${nf.name} added to library!`);
+      }
+
+      function genShoppingList(p) {
+        const m = {};
+        Object.values(p).forEach(d => {
+          Object.values(d).forEach(meal => {
+            if (meal?.ingredients) {
+              meal.ingredients.forEach(i => {
+                const k = i.toLowerCase().trim();
+                m[k] = (m[k] || 0) + 1;
+              });
+            }
+          });
+        });
+        return Object.entries(m).map(([n, c]) => ({
+          name: n.charAt(0).toUpperCase() + n.slice(1),
+          count: c,
+          id: n
+        })).sort((a, b) => b.count - a.count);
+      }
+
+      async function generateWeekPlan() {
+        setLoadingPlan(true);
+        const ai = AGES.find(a => a.value === babyAge);
+        const prompt = `Act as an expert pediatric nutritionist. Generate a comprehensive 7-day baby food meal plan for a ${babyAge} baby. Respond in ${language}.
+        Consistent developmental texture: ${ai.texture}. 
+        Provide exactly 3 structured meals (Breakfast, Lunch, Dinner) for Monday through Sunday. Ensure meals are balanced, nutrient-dense, and introduce varied allergens carefully.
+        No honey, salt, or refined sugars.
+        Return ONLY a clean, valid JSON object without backticks, matching this schema precisely:
+        {"Monday":{"Breakfast":{"name":"Sweet Potato Oatmeal Cook","ingredients":["10g Rolled Oats","30g Sweet Potato Puree","50ml Formula/Breastmilk"],"portions":"1 bowl"},"Lunch":{"name":"Veggie Puree Soup","ingredients":["20g Carrot","10g Zucchini"],"portions":"1 cup"},"Dinner":{"name":"Mash Avocado Treat","ingredients":["30g Ripe Avocado"],"portions":"1 portion"}},"Tuesday":{},"Wednesday":{},"Thursday":{},"Friday":{},"Saturday":{},"Sunday":{}}`;
+
+        try {
+          const res = await callClaude(prompt);
+          const cleanedText = res.replace(/```json|```/g, "").trim();
+          const np = JSON.parse(cleanedText);
+          const sl = genShoppingList(np);
+          setPlan(np); setShoppingList(sl); setCheckedItems({});
+          savePlanner({ plan: np, shoppingList: sl, checkedItems: {} });
+          showT("Weekly plan generated successfully! 🎉");
+        } catch (e) {
+          showT("Could not generate a weekly plan. Try again.");
+        } finally {
+          setLoadingPlan(false);
+        }
+      }
+
+      async function addMealFromCookbook(recipe, day, meal) {
+        const np = { ...plan, [day]: { ...(plan[day] || {}), [meal]: { name: recipe.name, ingredients: recipe.ingredients || [], portions: recipe.servings || "1 portion", fromCookbook: true } } };
+        const sl = genShoppingList(np);
+        setPlan(np); setShoppingList(sl); savePlanner({ plan: np, shoppingList: sl });
+        setShowSlotPicker(null); showT(`${recipe.name} scheduled for ${day} ${meal}!`);
+      }
+
+      async function addCustomMealSlot(day, meal) {
+        if (!customMealName.trim()) return;
+        const np = { ...plan, [day]: { ...(plan[day] || {}), [meal]: { name: customMealName.trim(), ingredients: [], portions: "1 portion", custom: true } } };
+        setPlan(np); savePlanner({ plan: np });
+        setShowCustomMeal(null); setCustomMealName(""); showT("Custom meal scheduled!");
+      }
+
+      async function removeMealSlot(day, meal) {
+        const np = { ...plan };
+        if (np[day]) {
+          delete np[day][meal];
+          if (!Object.keys(np[day]).length) delete np[day];
+        }
+        const sl = genShoppingList(np);
+        setPlan(np); setShoppingList(sl); savePlanner({ plan: np, shoppingList: sl });
+      }
+
+      function toggleCheck(id) {
+        const u = { ...checkedItems, [id]: !checkedItems[id] };
+        setCheckedItems(u); savePlanner({ checkedItems: u });
+      }
+
+      async function sendChatMessage(ov) {
+        const text = ov || chatInput.trim();
+        if ((!text && !chatImage) || chatLoading) return;
+
+        const userMsgContent = chatImage ? `📷 [Attached Image] ${text || "Please analyze this!"}` : text;
+        const updatedMessages = [...messages, { role: "user", content: userMsgContent }];
+        setMessages(updatedMessages);
+        setChatInput(""); setChatLoading(true);
+
+        const hist = updatedMessages.map(m => `${m.role === "user" ? "Parent" : "Assistant"}: ${m.content}`).join("\n\n");
+        const prompt = `Act as a warm, reassuring, and highly expert pediatric nutritionist. The baby is ${babyAge} old${babyName ? ` and named ${babyName}` : ""}.
+        Respond in ${language}. Help the parent with toddler recipes, feeding routines, tracking symptoms, managing safe allergens, constipation issues, and meal prep advice.
+        Safety warnings are mandatory: Never recommend honey for infants under 12 months, or whole nuts under 4 years. No added salt/sugar under 12 months.
+        
+        --- Conversation History ---
+        ${hist}
+        --- End of History ---
+        Respond as Assistant:`;
+
+        try {
+          const res = await callClaude(prompt);
+          // The returned response is already HTML parsed due to our new callClaude markdown handling
+          setMessages(prev => [...prev, { role: "assistant", content: res, isHtml: true }]);
+          setChatImage(null); setChatImageUrl(null);
+        } catch (e) {
+          setMessages(prev => [...prev, { role: "assistant", content: "<p class='text-red-500 font-semibold'>Sorry, there was an issue connecting to the assistant server. Please check your credentials.</p>", isHtml: true }]);
+        } finally {
+          setChatLoading(false);
+        }
+      }
+
+      function handleSettingsSave(e) {
+        e.preventDefault();
+        saveSettings();
+        setShowSettings(false);
+        showT("Baby Profile saved! 👶");
+      }
+
+      // Calculations for tracking panels
+      const allFoods = getAllFoods();
+      const appropriateFoods = Object.values(allFoods).flat().filter(f => isAgeOk(f.minAge, babyAge));
+      const triedCount = Object.keys(trackerLog).length;
+      const safeCount = Object.entries(trackerLog).filter(([k,v]) => v.reaction !== "allergic" && daysSince(v.date) >= 3).length;
+      const allergicCount = Object.entries(trackerLog).filter(([k,v]) => v.reaction === "allergic").length;
+      const waitingCount = Object.entries(trackerLog).filter(([k,v]) => daysSince(v.date) < 3).length;
+      const progressPct = appropriateFoods.length > 0 ? Math.round((safeCount / appropriateFoods.length) * 100) : 0;
+      const totalMeals = Object.values(plan).reduce((a, d) => a + Object.keys(d || {}).length, 0);
+      const completeDays = Object.values(plan).filter(d => d && Object.keys(d).length === 3).length;
+      const checkedCount = Object.values(checkedItems).filter(Boolean).length;
+      const ratedCount = savedRecipes.filter(r => ratings[r.id]?.stars).length;
+      const favCount = savedRecipes.filter(r => (ratings[r.id]?.tags || []).includes("favourite")).length;
+
+      function LangSelect() {
+        return (
+          <select value={language} onChange={e => handleLang(e.target.value)} className="text-xs px-2.5 py-1.5 rounded-full border border-stone-200 bg-stone-50 text-stone-700 outline-none cursor-pointer hover:bg-stone-100 transition-all font-semibold">
+            {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </select>
+        );
+      }
+
+      // Keep default selection style updated inside the responsive header component
+      function AgeBar() {
+        return (
+          <div className="flex gap-2.5 overflow-x-auto py-1 px-4 scrollbar-thin">
+            {AGES.map(a => (
+              <button key={a.value} onClick={() => handleAge(a.value)} className={`px-4 py-2 rounded-full border text-xs font-semibold whitespace-nowrap transition-all shadow-sm ${babyAge === a.value ? 'bg-white border-white text-purple-600 font-bold scale-105' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}>
+                {a.emoji} {a.label}
+              </button>
+            ))}
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-stone-50 pb-28 select-none">
+          {/* Main Global Header */}
+          <header className="bg-gradient-to-br from-amber-500 via-orange-400 to-rose-400 text-white pt-8 pb-5 px-4 rounded-b-[2.5rem] shadow-md relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-cover bg-center pointer-events-none" style={{backgroundImage: 'url("https://placehold.co/600x300")'}}></div>
+            
+            <div className="max-w-md mx-auto flex flex-col items-center relative z-10">
+              <div className="w-full flex justify-between items-center mb-4 px-2">
+                <button onClick={() => setShowSettings(!showSettings)} className="text-2xl hover:scale-110 active:scale-95 transition-all">⚙️</button>
+                <div className="text-4xl hover:scale-110 active:scale-95 transition-all cursor-pointer floating-accent" onClick={goHome}>👶</div>
+                <LangSelect />
+              </div>
+              
+              <h1 className="serif-title text-3xl font-extrabold tracking-tight drop-shadow-sm mb-1" onClick={goHome}>Baby Food Assistant</h1>
+              <p className="text-xs text-white/90 mb-4 font-medium tracking-wide">Secure · Developmental · Pediatric-Grade</p>
+              
+              <AgeBar />
+              
+              {babyName && (
+                <div className="mt-3 bg-white/20 px-3.5 py-1 rounded-full text-xs font-semibold backdrop-blur-sm shadow-inner">
+                  Tracking development for: <span className="font-extrabold text-yellow-100">{babyName}</span>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Profile Settings Overlay */}
+          {showSettings && (
+            <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+              <form onSubmit={handleSettingsSave} className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up">
+                <div className="flex justify-between items-center mb-6 border-b border-stone-100 pb-3">
+                  <h3 className="serif-title text-lg font-bold text-stone-800">Edit Baby's Profile</h3>
+                  <button type="button" onClick={() => setShowSettings(false)} className="text-stone-400 hover:text-stone-600 font-bold text-xl">✕</button>
+                </div>
+                
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Baby's Name</label>
+                    <input type="text" value={babyName} onChange={e => setBabyName(e.target.value)} placeholder="e.g. Liam" className="w-full px-4 py-3 rounded-xl border border-stone-200 outline-none focus:ring-2 focus:ring-orange-400 bg-stone-50 text-stone-800 text-sm font-medium transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Development Age Benchmarks</label>
+                    <select value={babyAge} onChange={e => handleAge(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-stone-200 outline-none bg-stone-50 text-stone-800 text-sm font-medium">
+                      {AGES.map(a => <option key={a.value} value={a.value}>{a.label} ({a.value})</option>)}
+                    </select>
+                  </div>
+                </div>
+                
+                <button type="submit" className="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-400 to-rose-400 text-white font-semibold text-sm hover:opacity-95 transition-all shadow-md">
+                  Save Changes
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Main Body Switchboard */}
+          <main className="max-w-md mx-auto px-4 mt-6">
+            
+            {/* 1. HOME SCREEN */}
+            {mode === "home" && (
+              <div className="space-y-4">
+                {/* Onboarding Quick Cards */}
+                <div className="grid grid-cols-1 gap-3.5">
+                  {[
+                    {id:"recipe", icon:"🍽️", title:"Recipe Generator", desc:"5 custom meals matching age, kitchen devices & safe allergens", grad: "from-amber-400 to-orange-400"},
+                    {id:"chat", icon:"💬", title:"Chat with Expert AI Chef", desc:"Ask pediatric feeding routines, constipation & symptom support", grad: "from-purple-400 to-indigo-400"},
+                    {id:"cookbook", icon:"📖", title:"My Safe Cookbook", desc: `${savedRecipes.length} saved · ${favCount} ❤️ · ${ratedCount} rated`, grad: "from-emerald-400 to-teal-400"},
+                    {id:"tracker", icon:"🥕", title:"First Foods Allergen Tracker", desc: `${safeCount} safe · ${triedCount} tried · ${progressPct}% complete`, grad: "from-orange-400 to-rose-400"},
+                    {id:"planner", icon:"📅", title:"Meal Planner & Shopping List", desc: `${totalMeals}/21 scheduled · ${completeDays}/7 days complete`, grad: "from-fuchsia-400 to-purple-400"},
+                  ].map(card => (
+                    <div key={card.id} onClick={() => { setMode(card.id); if (card.id === "chat" && messages.length === 0) setMessages([{ role: "assistant", content: "<p>Hello! I am your developmental pediatrician and infant nutrition chatbot. How can I guide you today? 👶</p>", isHtml: true }]); }}
+                      className="bg-white rounded-2xl p-4 border border-stone-100 hover:border-stone-200 shadow-sm cursor-pointer hover:shadow-md active:scale-[0.99] transition-all flex items-center gap-4 group">
+                      <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${card.grad} text-white flex items-center justify-center text-2xl shadow-sm group-hover:scale-105 transition-all shrink-0`}>
+                        {card.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-stone-800 text-sm tracking-tight mb-1 group-hover:text-orange-500 transition-all">{card.title}</h3>
+                        <p className="text-xs text-stone-500 leading-normal line-clamp-2">{card.desc}</p>
+                      </div>
+                      <div className="text-stone-300 group-hover:translate-x-1 transition-all text-xl pr-1">›</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Healthy Tip Cards */}
+                <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 shadow-inner">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-3">🌱 Healthy Guidelines for Parents</h4>
+                  <ul className="space-y-2 text-xs text-stone-600 leading-relaxed font-medium">
+                    <li className="flex gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span><strong>The 3-Day Rule:</strong> Introduce one brand-new food at a time, keeping an allergic check interval of 72 hours before another ingredient.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span><strong>Iron Intake:</strong> Infant iron reserves drop by 6 months; focus on pureed lentils, egg yolks, or safe organic meat broths.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-emerald-500 font-bold">•</span>
+                      <span><strong>Oral Motor Play:</strong> Allow self-feeding exploration. Messy play is structural brain development!</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* 2. RECIPE VIEW */}
+            {mode === "recipe" && (
+              <div className="space-y-6">
+                {/* Onboarding steps tracker */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 flex justify-between items-center text-xs font-bold text-stone-400">
+                  {["Method", "Allergens", "Fridge", "Options"].map((label, idx) => (
+                    <button key={label} disabled={recipeStep < idx + 1 && !loadingList} onClick={() => setRecipeStep(idx + 1)} className="flex items-center gap-1.5 focus:outline-none">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${recipeStep >= idx + 1 ? 'bg-orange-400 text-white' : 'bg-stone-100 text-stone-500'}`}>{idx + 1}</span>
+                      <span className={recipeStep === idx + 1 ? "text-orange-500 font-extrabold" : "text-stone-400 font-medium"}>{label}</span>
+                      {idx < 3 && <span className="text-stone-200 font-normal ml-1">→</span>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Step 1: Equipment Selection */}
+                {recipeStep === 1 && (
+                  <div className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm space-y-4">
+                    <h2 className="serif-title text-xl font-extrabold text-stone-800 mb-1">Select Kitchen Equipment Method</h2>
+                    <p className="text-xs text-stone-400 mb-4">We'll adjust preparation instructions matching your device structure</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {METHODS.map(m => (
+                        <div key={m.value} onClick={() => setMethod(m.value)} className={`p-5 rounded-2xl text-center border-2 cursor-pointer transition-all ${method === m.value ? 'bg-purple-500/10 border-purple-500 scale-[1.02]' : 'bg-white border-stone-200 hover:border-stone-300'}`}>
+                          <div className="text-3xl mb-2">{m.emoji}</div>
+                          <div className={`text-xs font-bold ${method === m.value ? 'text-purple-700' : 'text-stone-700'}`}>{m.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {method && (
+                      <button onClick={() => setRecipeStep(2)} className="w-full mt-4 py-4 bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-xl text-sm transition-all shadow-md">
+                        Continue to Allergen Filter →
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Allergens Filter & Fridge Input */}
+                {recipeStep === 2 && (
+                  <div className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm space-y-5">
+                    <h2 className="serif-title text-xl font-extrabold text-stone-800 mb-1">Exclude Core Allergens</h2>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ALLERGENS.map(a => {
+                        const hasAllergen = allergens.includes(a.value);
+                        return (
+                          <div key={a.value} onClick={() => setAllergens(p => hasAllergen ? p.filter(x => x !== a.value) : [...p, a.value])}
+                            className={`px-3 py-3 rounded-xl border text-center text-xs font-semibold cursor-pointer transition-all ${hasAllergen ? 'bg-rose-100 border-rose-300 text-rose-600 scale-[1.01]' : 'bg-stone-50 border-stone-200 text-stone-700'}`}>
+                            {a.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button onClick={() => setRecipeStep(3)} className="w-full py-4 bg-orange-400 hover:bg-orange-500 text-white font-semibold rounded-xl text-sm transition-all shadow-md">
+                      Continue to Ingredients
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 3: Kitchen Inventory & Custom Input */}
+                {recipeStep === 3 && (
+                  <div className="bg-white rounded-3xl p-6 border border-stone-100 shadow-sm space-y-5">
+                    <h2 className="serif-title text-xl font-extrabold text-stone-800">What ingredients do you have?</h2>
+                    <p className="text-xs text-stone-400">List available items (optional). Our AI chef will craft age-appropriate combinations.</p>
+                    <textarea value={fridgeInput} onChange={e => setFridgeInput(e.target.value)} placeholder="e.g. Avocado, sweet potato, spinach, breastmilk..." rows={3} className="w-full px-4 py-3 rounded-xl border border-stone-200 bg-stone-50 outline-none text-xs font-semibold text-stone-800 leading-normal resize-none focus:ring-2 focus:ring-orange-400 transition-all" />
+                    
+                    <div className="flex gap-3">
+                      <button onClick={() => fileRef.current.click()} className={`flex-1 py-3 text-xs font-bold rounded-xl border transition-all ${fridgeImageUrl ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'}`}>
+                        {fridgeImageUrl ? "✅ Fridge Photo Attached" : "📷 Capture Fridge Content"}
+                      </button>
+                      {fridgeImageUrl && (
+                        <button onClick={() => { setFridgeImage(null); setFridgeImageUrl(null); }} className="px-4 py-3 bg-stone-100 border border-stone-200 text-stone-500 hover:bg-stone-200 font-bold rounded-xl text-sm">✕</button>
+                      )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*" onChange={handleFridgeImg} className="hidden" />
+
+                    <button onClick={generateRecipeList} className="w-full py-4 bg-gradient-to-r from-orange-400 to-rose-400 text-white font-extrabold rounded-xl text-sm transition-all shadow-md hover:opacity-95">
+                      Generate Safe Developmental Recipes ✨
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 4: Suggested Safe Meal Options */}
+                {recipeStep === 4 && (
+                  <div className="space-y-4">
+                    {loadingList && (
+                      <div className="bg-white rounded-3xl p-12 text-center border border-stone-100 shadow-sm space-y-4 flex flex-col items-center">
+                        <div className="text-5xl animate-bounce">🔄</div>
+                        <h3 className="font-bold text-stone-800 text-base">Creating Baby Meal Ideas</h3>
+                        <p className="text-xs text-stone-400 leading-normal max-w-xs">Analyzing structural consistencies and allergen-free limits for {babyAge}...</p>
+                      </div>
+                    )}
+
+                    {!loadingList && !selectedRecipe && recipeList.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h2 className="serif-title text-lg font-bold text-stone-800">Choose a Development Option</h2>
+                          <button onClick={() => setRecipeStep(3)} className="text-xs font-bold text-orange-500 hover:underline">Change Ingredients</button>
+                        </div>
+                        
+                        {recipeList.map((r, i) => (
+                          <div key={r.id} onClick={() => getRecipeDetail(r)} style={{background: CARD_COLORS[i % 5].bg}} className="rounded-2xl p-5 text-white cursor-pointer hover:scale-[1.01] transition-all duration-300 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 text-7xl select-none pointer-events-none transition-all">🍽️</div>
+                            <div className="text-[10px] uppercase font-extrabold tracking-widest text-white/80 mb-2">Development Option {i+1}</div>
+                            <h4 className="serif-title text-lg font-extrabold leading-tight mb-2">{r.name}</h4>
+                            <p className="text-xs text-white/95 leading-normal mb-4 font-medium">{r.description}</p>
+                            
+                            <div className="flex gap-2 flex-wrap text-[10px] font-bold">
+                              <span className="bg-white/20 px-2.5 py-1 rounded-full">⏱ Prep: {r.prepTime}</span>
+                              <span className="bg-white/20 px-2.5 py-1 rounded-full">🔥 Cook: {r.cookTime}</span>
+                              <span className="bg-white/20 px-2.5 py-1 rounded-full">📊 Prep Level: {r.difficulty}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {loadingDetail && (
+                      <div className="bg-white rounded-3xl p-12 text-center border border-stone-100 shadow-sm space-y-4 flex flex-col items-center">
+                        <div className="text-5xl animate-spin">📖</div>
+                        <h3 className="font-bold text-stone-800 text-base">Detailed Portion Calculations</h3>
+                        <p className="text-xs text-stone-400 leading-normal">Formatting precise pediatric ratios and developmental guides...</p>
+                      </div>
+                    )}
+
+                    {selectedRecipe && !loadingDetail && (
+                      <div className="space-y-4 animate-fade-in">
+                        <div className="flex justify-between items-center">
+                          <button onClick={() => setSelectedRecipe(null)} className="text-xs font-bold text-orange-500 flex items-center gap-1">← Back to Options</button>
+                          <button onClick={goHome} className="text-xs font-bold text-purple-500 flex items-center gap-1">🏠 Home</button>
+                        </div>
+                        <FullRecipeCard r={selectedRecipe} onSave={saveRecipe} showSave={true} saving={saving} babyAge={babyAge} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. NUTRITIONIST CHAT */}
+            {mode === "chat" && (
+              <div className="bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden flex flex-col h-[70vh]">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+                  {messages.map((m, i) => (
+                    <div key={i} className={`flex items-start gap-2 max-w-[85%] ${m.role === "user" ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
+                      {m.role === "assistant" && (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">👶</div>
+                      )}
+                      <div className={`p-4 rounded-2xl text-xs leading-relaxed shadow-sm ${m.role === "user" ? 'bg-gradient-to-br from-orange-400 to-rose-400 text-white' : 'bg-stone-50 border border-stone-100 text-stone-800'}`}>
+                        {m.isHtml ? <div className="prose prose-sm max-w-none text-stone-800" dangerouslySetInnerHTML={{ __html: m.content }} /> : m.content}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-xs shadow-sm">👶</div>
+                      <div className="bg-stone-100 rounded-full px-4 py-2.5 flex gap-1.5 shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce"></span>
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce delay-100"></span>
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-bounce delay-200"></span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+
+                {/* Preset developmental prompts */}
+                {messages.length <= 1 && (
+                  <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-none border-t border-stone-100 bg-stone-50">
+                    {QUICK_Q.map((q, idx) => (
+                      <button key={idx} onClick={() => sendChatMessage(q)} className="px-3.5 py-2 rounded-full border border-stone-200 bg-white hover:bg-stone-50 text-[10px] font-bold text-stone-600 whitespace-nowrap transition-all shadow-sm">
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Photo uploader status */}
+                {chatImageUrl && (
+                  <div className="p-3 bg-orange-50 border-t border-orange-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img src={chatImageUrl} className="w-12 h-12 rounded-lg object-cover border border-orange-200" />
+                      <span className="text-xs font-semibold text-stone-600">Symptom/diaper photo attached</span>
+                    </div>
+                    <button onClick={() => { setChatImage(null); setChatImageUrl(null); }} className="text-xs font-bold text-stone-400 hover:text-stone-600">✕</button>
+                  </div>
+                )}
+
+                {/* Main input footer */}
+                <div className="p-3 border-t border-stone-100 bg-white flex gap-2 items-center">
+                  <button onClick={() => chatFileRef.current.click()} className="w-10 h-10 rounded-full border border-stone-200 hover:bg-stone-50 flex items-center justify-center text-lg shadow-sm">📷</button>
+                  <input ref={chatFileRef} type="file" accept="image/*" onChange={handleChatImg} className="hidden" />
+                  
+                  <textarea value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                    placeholder="Ask about routines, safe first foods, allergy checks..." rows={1} className="flex-1 px-4 py-2.5 rounded-full border border-stone-200 bg-stone-50 outline-none text-xs font-semibold text-stone-800 leading-normal resize-none" />
+                  
+                  <button onClick={() => sendChatMessage()} disabled={chatLoading || (!chatInput.trim() && !chatImage)} className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 hover:opacity-95 text-white flex items-center justify-center text-lg shadow-sm disabled:opacity-30">➤</button>
+                </div>
+              </div>
+            )}
+
+            {/* 4. COOKBOOK SECTION */}
+            {mode === "cookbook" && (
+              <div className="space-y-4">
+                {cookbookSelected ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <button onClick={() => setCookbookSelected(null)} className="text-xs font-bold text-orange-500 flex items-center gap-1">← Back to Cookbook</button>
+                      <button onClick={() => openRatingModal(cookbookSelected)} className="px-3 py-1.5 rounded-full border border-orange-200 hover:bg-orange-50 text-xs font-bold text-orange-500 shadow-sm">{ratings[cookbookSelected.id]?.stars ? "✏️ Edit Review" : "⭐ Rate Recipe"}</button>
+                    </div>
+                    
+                    <FullRecipeCard r={cookbookSelected} showSave={false} babyAge={babyAge} />
+
+                    {ratings[cookbookSelected.id] && (
+                      <div className="bg-white rounded-3xl p-5 border border-stone-100 shadow-sm space-y-3">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-stone-400">Your Rating & Notes</h4>
+                        <div className="flex gap-1">
+                          {[1,2,3].map(i => <span key={i} className={`text-xl ${i <= ratings[cookbookSelected.id].stars ? 'opacity-100' : 'opacity-25'}`}>⭐</span>)}
+                        </div>
+                        {ratings[cookbookSelected.id].note && (
+                          <p className="text-xs font-semibold text-stone-600 italic">" {ratings[cookbookSelected.id].note} "</p>
+                        )}
+                        <div className="flex gap-1.5 flex-wrap">
+                          {TAGS.filter(t => (ratings[cookbookSelected.id].tags || []).includes(t.id)).map(tag => (
+                            <span key={tag.id} style={{backgroundColor: `${tag.color}15`, color: tag.color}} className="px-2.5 py-1 rounded-full text-[10px] font-bold">{tag.label}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button onClick={() => deleteRecipe(cookbookSelected.id)} className="w-full py-4 border border-rose-200 hover:bg-rose-50 text-rose-500 font-bold rounded-xl text-xs transition-all shadow-sm">
+                      🗑 Delete from Cookbook
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-3xl p-4 border border-stone-100 shadow-sm space-y-3">
+                      <input value={cbSearch} onChange={e => setCbSearch(e.target.value)} placeholder="🔍 Search saved recipes..." className="w-full px-4 py-3 rounded-xl border border-stone-200 bg-stone-50 outline-none text-xs font-semibold text-stone-800 focus:ring-2 focus:ring-orange-400" />
+                      
+                      <div className="flex gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                        <button onClick={() => setCbFilterTag(null)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${!cbFilterTag ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-stone-50 border-stone-200 text-stone-500'}`}>All</button>
+                        {TAGS.map(t => (
+                          <button key={t.id} onClick={() => setCbFilterTag(cbFilterTag === t.id ? null : t.id)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all whitespace-nowrap ${cbFilterTag === t.id ? 'bg-orange-500 border-orange-500 text-white' : 'bg-stone-50 border-stone-200 text-stone-500'}`}>{t.label}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {savedRecipes.length === 0 ? (
+                      <div className="bg-white rounded-3xl p-12 text-center border border-stone-100 shadow-sm space-y-4 flex flex-col items-center">
+                        <div className="text-5xl">📖</div>
+                        <h3 className="serif-title font-extrabold text-stone-800 text-base">Your Cookbook is empty</h3>
+                        <p className="text-xs text-stone-400 leading-normal max-w-xs mb-3">Save recipes using our AI Recipe Generator to store pediatrician portion ratios.</p>
+                        <button onClick={() => setMode("recipe")} className="px-5 py-3 rounded-xl bg-orange-400 hover:bg-orange-500 text-white font-semibold text-xs shadow-md">Create First Recipe</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {savedRecipes.filter(r => {
+                          if (cbSearch && !r.name.toLowerCase().includes(cbSearch.toLowerCase())) return false;
+                          if (cbFilterTag && !(ratings[r.id]?.tags || []).includes(cbFilterTag)) return false;
+                          return true;
+                        }).map((r, idx) => {
+                          const rating = ratings[r.id];
+                          return (
+                            <div key={r.id} onClick={() => setCookbookSelected(r)} className="bg-white rounded-2xl border border-stone-100 hover:border-stone-200 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all flex justify-between items-center group">
+                              <div className="space-y-1.5">
+                                <h4 className="font-bold text-stone-800 text-sm group-hover:text-orange-500 transition-all leading-tight">{r.name}</h4>
+                                <div className="text-[10px] font-bold text-stone-400 flex gap-2">
+                                  <span>{r.babyAge}</span>
+                                  <span>•</span>
+                                  <span>Prep: {r.prepTime}</span>
+                                </div>
+                                {rating?.tags && (
+                                  <div className="flex gap-1 flex-wrap">
+                                    {TAGS.filter(t => (rating.tags || []).includes(t.id)).map(tag => (
+                                      <span key={tag.id} className="text-[9px] font-bold text-stone-400">{tag.label}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {rating?.stars ? (
+                                  <div className="flex gap-0.5">{[1,2,3].map(i => <span key={i} className={`text-xs ${i <= rating.stars ? 'opacity-100' : 'opacity-20'}`}>⭐</span>)}</div>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-orange-400 bg-orange-50 border border-orange-100 px-2 py-1 rounded-full group-hover:bg-orange-100">+ Rate</span>
+                                )}
+                                <span className="text-stone-300 text-lg group-hover:translate-x-0.5 transition-all">›</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <RatingModal showRatingModal={showRatingModal} setShowRatingModal={setShowRatingModal} ratingStars={ratingStars} setRatingStars={setRatingStars} ratingTags={ratingTags} setRatingTags={setRatingTags} ratingNote={ratingNote} setRatingNote={setRatingNote} saveRating={saveRating} />
+              </div>
+            )}
+
+            {/* 5. DEVELOPMENT TRACKER */}
+            {mode === "tracker" && (
+              <div className="space-y-4 animate-fade-in">
+                {/* Onboarding Overview progress banner */}
+                <div className="bg-gradient-to-br from-orange-400 to-rose-400 rounded-3xl p-5 text-white shadow-md relative overflow-hidden">
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="text-4xl font-extrabold mb-1">{progressPct}%</div>
+                    <div className="text-xs text-white/90 font-bold mb-3 uppercase tracking-widest">Recommended Foods Logged</div>
+                    
+                    <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden mb-4">
+                      <div className="bg-white h-full transition-all duration-500" style={{width: `${progressPct}%`}}></div>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-2 w-full text-[10px] font-bold text-center">
+                      {[
+                        {l:"Tried", v:triedCount},
+                        {l:"Safe ✅", v:safeCount},
+                        {l:"Watch ⏳", v:waitingCount},
+                        {l:"Allergic ⚠️", v:allergicCount}
+                      ].map((stat, idx) => (
+                        <div key={idx} className="bg-white/10 rounded-xl py-2">
+                          <div className="text-sm font-extrabold text-yellow-100">{stat.v}</div>
+                          <div className="text-white/80">{stat.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-navigation tabs */}
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-stone-100 flex gap-1">
+                  {[
+                    {id:"foods", label:"🥕 First Foods Library"},
+                    {id:"log", label:"📋 History Logs"},
+                    {id:"progress", label:"📊 Developmental Stats"}
+                  ].map(tab => (
+                    <button key={tab.id} onClick={() => setTrackerView(tab.id)} className={`flex-1 py-2 rounded-xl text-center text-xs font-bold transition-all ${trackerView === tab.id ? 'bg-orange-400 text-white shadow-sm' : 'text-stone-500 hover:bg-stone-50'}`}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Foods Library view */}
+                {trackerView === "foods" && (
+                  <div className="space-y-4">
+                    {/* Visual 3-day Countdown allergen guard */}
+                    {(() => {
+                      const waitingEntries = Object.entries(trackerLog).filter(([k,v]) => daysSince(v.date) < 3 && v.reaction !== "allergic");
+                      if (waitingEntries.length > 0) {
+                        const [foodName, entry] = waitingEntries[0];
+                        const daysLeft = 3 - daysSince(entry.date);
+                        return (
+                          <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 shadow-sm animate-pulse space-y-2">
+                            <h4 className="text-xs font-extrabold uppercase tracking-widest text-amber-600">⏳ Allergic Watch Countdown</h4>
+                            <p className="text-xs font-bold text-stone-800">Introduced <span className="text-amber-600 font-extrabold">{foodName}</span> {daysSince(entry.date)} days ago.</p>
+                            <p className="text-xs font-medium text-stone-500">Wait <strong className="text-amber-600 font-extrabold">{daysLeft} more days</strong> before testing another allergen. Watch for skin rashes, diarrhea, or localized swelling.</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-4 shadow-sm flex items-center gap-3">
+                          <span className="text-3xl">🎉</span>
+                          <div className="text-xs leading-normal">
+                            <h4 className="font-bold text-emerald-800">Clear to Introduce Safe Allergen</h4>
+                            <p className="text-stone-500 font-medium">No wait limits active. Ready to introduce a developmental food!</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Filter Library input */}
+                    <div className="flex gap-2">
+                      <input value={trackerSearch} onChange={e => setTrackerSearch(e.target.value)} placeholder="Search ingredients..." className="flex-1 px-4 py-3 rounded-xl border border-stone-200 bg-white outline-none text-xs font-semibold focus:ring-2 focus:ring-orange-400" />
+                      <button onClick={() => setShowAddCustom(true)} className="px-4 py-3 bg-gradient-to-br from-purple-500 to-indigo-500 hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-md">+ Add Custom</button>
+                    </div>
+
+                    {!trackerSearch && (
+                      <div className="flex gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                        {Object.keys(allFoods).map(cat => (
+                          <button key={cat} onClick={() => setActiveCat(cat)} className={`px-4 py-2 rounded-full border text-xs font-bold transition-all whitespace-nowrap shadow-sm ${activeCat === cat ? 'bg-orange-400 border-orange-400 text-white' : 'bg-white border-stone-200 text-stone-600'}`}>
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3.5">
+                      {Object.entries(trackerSearch ? {"Results": Object.values(allFoods).flat().filter(f => f.name.toLowerCase().includes(trackerSearch.toLowerCase()))} : {[activeCat]: allFoods[activeCat] || []}).map(([cat, foods]) => (
+                        <React.Fragment key={cat}>
+                          {foods.map(food => {
+                            const isAppropriate = isAgeOk(food.minAge, babyAge);
+                            const currentStatus = getStatus(food.name);
+                            const styleConfig = getStatusStyle(currentStatus);
+                            return (
+                              <div key={food.name} onClick={() => isAppropriate && openLogFood(food)} className={`rounded-2xl p-4 border transition-all text-left flex flex-col justify-between shadow-sm relative overflow-hidden ${isAppropriate ? 'cursor-pointer hover:shadow-md' : 'opacity-40 cursor-not-allowed'}`} style={{backgroundColor: styleConfig.bg, borderColor: styleConfig.border}}>
+                                <div className="space-y-1">
+                                  <div className="text-2xl">{food.emoji}</div>
+                                  <h4 className="font-extrabold text-stone-800 text-xs tracking-tight">{food.name}</h4>
+                                  {!isAppropriate && <p className="text-[9px] font-bold text-stone-400">Target Age: {food.minAge}</p>}
+                                </div>
+                                <div className="mt-4 flex justify-between items-center text-[9px] font-bold" style={{color: styleConfig.color}}>
+                                  <span>{styleConfig.label}</span>
+                                  {isAppropriate && <span className="bg-white border px-1.5 py-0.5 rounded-full shadow-sm">Log</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* History logs view */}
+                {trackerView === "log" && (
+                  <div className="space-y-3 animate-fade-in">
+                    {Object.keys(trackerLog).length === 0 ? (
+                      <div className="bg-white rounded-3xl p-12 text-center border border-stone-100 shadow-sm flex flex-col items-center">
+                        <div className="text-5xl mb-3">📋</div>
+                        <h4 className="font-bold text-stone-800 text-sm">No food logs yet</h4>
+                      </div>
+                    ) : (
+                      Object.entries(trackerLog).sort((a, b) => new Date(b[1].date) - new Date(a[1].date)).map(([foodName, log]) => {
+                        const styleConfig = getStatusStyle(log.reaction === "allergic" ? "allergic" : log.reaction === "rejected" ? "rejected" : "safe");
+                        return (
+                          <div key={foodName} className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm flex items-start justify-between gap-4 group">
+                            <div className="flex items-start gap-3">
+                              <span className="text-3xl">{log.emoji || "🍽"}</span>
+                              <div className="space-y-1">
+                                <h4 className="font-bold text-stone-800 text-xs">{foodName}</h4>
+                                <p className="text-[10px] text-stone-400 font-semibold">{new Date(log.date).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })} · {daysSince(log.date)} days ago</p>
+                                <div className="flex gap-1.5 items-center mt-1">
+                                  {/* Merged multiple style attributes to fix VS Code JSX compilation diagnostics */}
+                                  <span style={{backgroundColor: `${styleConfig.color}15`, color: styleConfig.color, borderColor: styleConfig.border}} className="text-[9px] font-bold px-2 py-0.5 rounded-full border">{styleConfig.label}</span>
+                                  {log.notes && <span className="text-[10px] text-stone-500 font-semibold">"{log.notes}"</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <button onClick={() => removeLog(foodName)} className="text-stone-300 hover:text-stone-500 font-bold text-sm pr-1">✕</button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* Progress analysis charts */}
+                {trackerView === "progress" && (
+                  <div className="space-y-4 animate-fade-in">
+                    <h3 className="serif-title text-base font-extrabold text-stone-800">Safe Categories Breakdown</h3>
+                    {Object.entries(FOOD_LIBRARY).map(([cat, foods]) => {
+                      const approp = foods.filter(f => isAgeOk(f.minAge, babyAge));
+                      const safeOnes = approp.filter(f => trackerLog[f.name] && getStatus(f.name) === "safe");
+                      const pct = approp.length > 0 ? Math.round((safeOnes.length / approp.length) * 100) : 0;
+                      return (
+                        <div key={cat} className="bg-white rounded-2xl p-4 border border-stone-100 shadow-sm space-y-2">
+                          <div className="flex justify-between items-center text-xs font-bold text-stone-700">
+                            <span>{cat}</span>
+                            <span>{safeOnes.length} / {approp.length} Foods</span>
+                          </div>
+                          <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                            <div className="bg-gradient-to-r from-orange-400 to-rose-400 h-full transition-all" style={{width: `${pct}%`}}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {allergicCount > 0 && (
+                      <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 space-y-3 shadow-sm animate-fade-in">
+                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-rose-600">⚠️ Active Allergic Warnings</h4>
+                        <div className="space-y-1">
+                          {Object.entries(trackerLog).filter(([k,v]) => v.reaction === "allergic").map(([name, log]) => (
+                            <div key={name} className="flex gap-2 text-xs font-bold text-stone-800">
+                              <span>{log.emoji || "🍽"}</span>
+                              <span>{name} ({log.notes || "No notes logged"})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Logging food reaction dialog */}
+                {selectedFood && (
+                  <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up space-y-5">
+                      <div className="flex items-center gap-3">
+                        <span className="text-4xl">{selectedFood.emoji}</span>
+                        <div>
+                          <h3 className="serif-title font-extrabold text-stone-800 text-lg leading-tight">{selectedFood.name}</h3>
+                          <p className="text-xs text-stone-400">Introduced age profile: {selectedFood.minAge}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Introduction Date</label>
+                        <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)} className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold text-stone-800 outline-none" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Pediatric Reaction</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {REACTIONS.map(react => (
+                            <div key={react.value} onClick={() => setLogReaction(react.value)} className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${logReaction === react.value ? 'bg-orange-100 border-orange-300 scale-[1.01]' : 'bg-stone-50 border-stone-200 hover:border-stone-300'}`}>
+                              <div className="text-2xl mb-1">{react.emoji}</div>
+                              <div className="text-[10px] font-bold text-stone-800">{react.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="e.g. Mixed smoothly with pear puree, liked warm..." className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold outline-none" />
+
+                      <div className="grid grid-cols-2 gap-3.5 pt-2">
+                        <button onClick={() => setSelectedFood(null)} className="py-3 border border-stone-200 text-stone-600 font-bold rounded-xl text-xs hover:bg-stone-50">Cancel</button>
+                        <button onClick={saveLog} disabled={!logReaction} className="py-3 bg-orange-400 hover:bg-orange-500 text-white font-extrabold rounded-xl text-xs disabled:opacity-40">Save Log ✓</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Create custom food dialog */}
+                {showAddCustom && (
+                  <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up space-y-4">
+                      <h3 className="serif-title font-extrabold text-stone-800 text-lg">Add Custom Ingredient</h3>
+                      <input value={customFoodName} onChange={e => setCustomFoodName(e.target.value)} placeholder="e.g. Dragonfruit" className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-orange-400" />
+                      
+                      <select value={customFoodCat} onChange={e => setCustomFoodCat(e.target.value)} className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold text-stone-800">
+                        {Object.keys(FOOD_LIBRARY).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+
+                      <div className="grid grid-cols-2 gap-3.5 pt-2">
+                        <button onClick={() => setShowAddCustom(false)} className="py-3 border border-stone-200 text-stone-600 font-bold rounded-xl text-xs hover:bg-stone-50">Cancel</button>
+                        <button onClick={addCustomFood} disabled={!customFoodName.trim()} className="py-3 bg-orange-400 hover:bg-orange-500 text-white font-extrabold rounded-xl text-xs disabled:opacity-40">Add Food</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 6. WEEKLY MEAL PLANNER */}
+            {mode === "planner" && (
+              <div className="space-y-4 animate-fade-in">
+                {/* Visual portion metrics header */}
+                <div className="bg-white rounded-3xl p-5 border border-stone-100 shadow-sm grid grid-cols-3 gap-3 text-center">
+                  {[
+                    {l:"Meals Scheduled", v: `${totalMeals} / 21`},
+                    {l:"Planned Days", v: `${completeDays} / 7`},
+                    {l:"Shopping Items", v: `${checkedCount} / ${shoppingList.length}`}
+                  ].map((stat, idx) => (
+                    <div key={idx} className="bg-stone-50 rounded-xl p-3">
+                      <div className="text-base font-extrabold text-purple-600 leading-tight mb-1">{stat.v}</div>
+                      <div className="text-[10px] font-bold text-stone-400 leading-normal">{stat.l}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sub-nav control selectors */}
+                <div className="flex gap-2.5">
+                  <button onClick={generateWeekPlan} disabled={loadingPlan} className="flex-[2] py-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-extrabold rounded-xl text-xs shadow-md disabled:opacity-40">
+                    {loadingPlan ? "Creating 7-Day Plan..." : "✨ Auto-Generate Full Week"}
+                  </button>
+                  <button onClick={() => setPlannerView(p => p === "plan" ? "shopping" : "plan")} className={`flex-1 py-4 text-xs font-bold rounded-xl border transition-all ${plannerView === "shopping" ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}>
+                    🛒 Shopping List
+                  </button>
+                </div>
+
+                {/* 7-day meal slots display */}
+                {plannerView === "plan" && (
+                  <div className="space-y-4">
+                    <div className="flex gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                      {DAYS.map(day => {
+                        const hasAllMeals = Object.keys(plan[day] || {}).length === 3;
+                        return (
+                          <button key={day} onClick={() => setActiveDay(day)} className={`px-4 py-2 rounded-full border text-xs font-bold transition-all relative whitespace-nowrap shadow-sm ${activeDay === day ? 'bg-purple-500 border-purple-500 text-white' : hasAllMeals ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-stone-200 text-stone-600'}`}>
+                            {day.slice(0,3)}
+                            {hasAllMeals && <span className="absolute -top-1.5 -right-1 text-[10px]">✅</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="serif-title text-base font-extrabold text-stone-800">{activeDay}'s Schedule</h3>
+                      {MEALS.map(meal => {
+                        const entry = plan[activeDay]?.[meal];
+                        return (
+                          <div key={meal} className="bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden flex flex-col">
+                            <div className={`px-4 py-3 flex justify-between items-center ${entry ? 'bg-purple-500 text-white' : 'bg-stone-50 text-stone-600'}`}>
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-xl">{MEAL_EMOJIS[meal]}</span>
+                                <div>
+                                  <div className="text-[9px] uppercase font-bold tracking-wider opacity-80">{meal}</div>
+                                  {entry && <h4 className="font-extrabold text-xs tracking-tight">{entry.name}</h4>}
+                                </div>
+                              </div>
+                              {entry && (
+                                <button onClick={() => removeMealSlot(activeDay, meal)} className="text-[10px] font-bold bg-white/20 px-2.5 py-1 rounded-full hover:bg-white/35">Remove</button>
+                              )}
+                            </div>
+                            
+                            {entry ? (
+                              <div className="p-4 space-y-3">
+                                <div className="flex gap-2 flex-wrap">
+                                  {entry.portions && <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2.5 py-1 rounded-full text-[10px] font-bold">👥 Portions: {entry.portions}</span>}
+                                  {entry.fromCookbook && <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1 rounded-full text-[10px] font-bold">📖 Safe Cookbook</span>}
+                                  {entry.custom && <span className="bg-orange-50 text-orange-700 border border-orange-100 px-2.5 py-1 rounded-full text-[10px] font-bold">✏️ Custom Manual</span>}
+                                </div>
+                                {entry.ingredients?.length > 0 && (
+                                  <div className="flex gap-1.5 flex-wrap">
+                                    {entry.ingredients.map((ing, idx) => <span key={idx} className="bg-stone-50 border text-stone-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">{ing}</span>)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="p-4 grid grid-cols-2 gap-3">
+                                <button onClick={() => setShowSlotPicker({ day: activeDay, meal })} className="py-2.5 border border-dashed border-purple-300 hover:bg-purple-50 text-purple-600 font-bold rounded-xl text-xs transition-all">📖 Insert Saved Recipe</button>
+                                <button onClick={() => { setShowCustomMeal({ day: activeDay, meal }); setCustomMealName(""); }} className="py-2.5 border border-dashed border-orange-300 hover:bg-orange-50 text-orange-600 font-bold rounded-xl text-xs transition-all">✏️ Insert Custom</button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compiled Shopping Checklists */}
+                {plannerView === "shopping" && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="serif-title text-base font-extrabold text-stone-800">Shopping List</h3>
+                        <p className="text-xs text-stone-400">Aggregated quantities needed for the weekly plan</p>
+                      </div>
+                      <span className="text-xs font-extrabold text-emerald-500">{checkedCount} / {shoppingList.length} Checked</span>
+                    </div>
+
+                    {shoppingList.length === 0 ? (
+                      <div className="bg-white rounded-3xl p-12 text-center border border-stone-100 shadow-sm flex flex-col items-center">
+                        <div className="text-5xl mb-3">🛒</div>
+                        <h4 className="font-bold text-stone-800 text-sm">List is empty</h4>
+                        <p className="text-xs text-stone-400 max-w-xs">Create or auto-generate a 7-day meal plan above to compile your checklist.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden mb-4">
+                          <div className="bg-gradient-to-r from-emerald-400 to-teal-400 h-full transition-all duration-300" style={{width: `${shoppingList.length > 0 ? (checkedCount / shoppingList.length) * 100 : 0}%`}}></div>
+                        </div>
+
+                        {shoppingList.map(item => (
+                          <div key={item.id} onClick={() => toggleCheck(item.id)} className={`bg-white rounded-2xl p-4 border transition-all flex items-center justify-between shadow-sm cursor-pointer select-none ${checkedItems[item.id] ? 'opacity-40 border-stone-200' : 'border-stone-100 hover:border-stone-200'}`}>
+                            <div className="flex items-center gap-3">
+                              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${checkedItems[item.id] ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-stone-300'}`}>
+                                {checkedItems[item.id] && <span className="text-[10px]">✓</span>}
+                              </span>
+                              <div className="text-xs font-bold text-stone-800" style={{textDecoration: checkedItems[item.id] ? 'line-through' : 'none'}}>{item.name}</div>
+                            </div>
+                            {item.count > 1 && (
+                              <span className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Used in {item.count} meals</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Scheduling slots modals */}
+                {showSlotPicker && (
+                  <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up max-h-[70vh] overflow-y-auto space-y-4">
+                      <div className="flex justify-between items-center border-b border-stone-100 pb-3">
+                        <h3 className="serif-title font-extrabold text-stone-800 text-base">{MEAL_EMOJIS[showSlotPicker.meal]} Schedule saved recipe</h3>
+                        <button onClick={() => setShowSlotPicker(null)} className="text-stone-400 hover:text-stone-600 font-bold text-xl">✕</button>
+                      </div>
+                      
+                      {savedRecipes.length === 0 ? (
+                        <div className="text-center p-6 text-xs font-bold text-stone-400">No saved recipes available. Craft ideas inside our Generator first!</div>
+                      ) : (
+                        savedRecipes.map(recipe => (
+                          <div key={recipe.id} onClick={() => addMealFromCookbook(recipe, showSlotPicker.day, showSlotPicker.meal)} className="bg-stone-50 rounded-xl p-3.5 border border-stone-200 hover:border-stone-300 cursor-pointer flex justify-between items-center group transition-all">
+                            <div>
+                              <h4 className="font-extrabold text-stone-800 text-xs group-hover:text-purple-600 transition-all">{recipe.name}</h4>
+                              <p className="text-[10px] text-stone-400 font-semibold">{recipe.babyAge}</p>
+                            </div>
+                            <span className="text-purple-500 font-extrabold text-base">+</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Scheduling custom manual entry modals */}
+                {showCustomMeal && (
+                  <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up space-y-4">
+                      <h3 className="serif-title font-extrabold text-stone-800 text-base">Schedule Custom Entry</h3>
+                      <input value={customMealName} onChange={e => setCustomMealName(e.target.value)} onKeyDown={e => e.key === "Enter" && addCustomMealSlot(showCustomMeal.day, showCustomMeal.meal)} placeholder="e.g. Mashed carrot with rice..." className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500" />
+                      
+                      <div className="grid grid-cols-2 gap-3.5 pt-2">
+                        <button onClick={() => setShowCustomMeal(null)} className="py-3 border border-stone-200 text-stone-600 font-bold rounded-xl text-xs hover:bg-stone-50">Cancel</button>
+                        <button onClick={() => addCustomMealSlot(showCustomMeal.day, showCustomMeal.meal)} disabled={!customMealName.trim()} className="py-3 bg-purple-500 hover:bg-purple-600 text-white font-extrabold rounded-xl text-xs disabled:opacity-40">Add to Schedule</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          {/* Toast Notification Container */}
+          <Toast toast={toast} />
+
+          {/* Persistent global responsive Bottom Nav bar */}
+          <BottomNav mode={mode} setMode={setMode} plannerView={plannerView} setPlannerView={setPlannerView} messages={messages} setMessages={setMessages} goHome={goHome} />
+        </div>
+      );
+    }
+
+    function FullRecipeCard({ r, onSave, showSave, saving, babyAge }) {
+      return (
+        <div className="bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden animate-fade-in flex flex-col">
+          {/* Header gradient banner */}
+          <div className="bg-gradient-to-br from-orange-400 to-rose-400 p-6 text-white space-y-2 relative">
+            <span className="text-[9px] uppercase tracking-widest font-extrabold bg-white/25 px-2.5 py-1 rounded-full">{r.babyAge || babyAge} development stage</span>
+            <h3 className="serif-title text-xl font-black leading-tight">{r.name}</h3>
+            <p className="text-xs text-white/95 leading-relaxed font-semibold">{r.description}</p>
+            
+            <div className="grid grid-cols-4 gap-2 pt-4 text-center text-[10px] font-bold">
+              {[
+                {l:"Prep", v: r.prepTime},
+                {l:"Cook", v: r.cookTime},
+                {l:"Yield", v: r.servings},
+                {l:"Prep Level", v: r.difficulty}
+              ].map((b, i) => (
+                <div key={i} className="bg-white/10 rounded-xl py-2">
+                  <div className="text-xs font-black">{b.v}</div>
+                  <div className="text-white/80">{b.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-5">
+            {/* Pediatric note block */}
+            {r.ageNote && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3 text-xs leading-relaxed">
+                <span className="text-xl">👩‍⚕️</span>
+                <div className="text-stone-700 font-semibold">
+                  <strong className="text-emerald-800">Pediatric Developmental Check:</strong> {r.ageNote}
+                </div>
+              </div>
+            )}
+
+            {/* Nutrition facts section */}
+            {r.nutrition && (
+              <div className="space-y-2.5">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-stone-400">Portion Nutritional Values</h4>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[
+                    {l: "Calories", v: r.nutrition.calories, bg: "bg-orange-50 text-orange-600 border-orange-100"},
+                    {l: "Protein", v: r.nutrition.protein, bg: "bg-emerald-50 text-emerald-600 border-emerald-100"},
+                    {l: "Iron", v: r.nutrition.iron, bg: "bg-rose-50 text-rose-600 border-rose-100"},
+                    {l: "Calcium", v: r.nutrition.calcium, bg: "bg-purple-50 text-purple-600 border-purple-100"}
+                  ].map((nut, i) => (
+                    <div key={i} className={`rounded-xl py-2.5 border ${nut.bg}`}>
+                      <div className="text-xs font-black leading-none mb-1">{nut.v}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider opacity-85 leading-none">{nut.l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ingredients checklist */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-stone-400">Detailed Portions Checklist</h4>
+              <div className="bg-stone-50 rounded-2xl p-4 border border-stone-100 space-y-2">
+                {r.ingredients?.map((ing, i) => (
+                  <div key={i} className="flex gap-2.5 text-xs text-stone-800 font-semibold">
+                    <span className="text-orange-400">•</span>
+                    <span>{ing}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Preparation directions steps */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-stone-400">Step-by-Step Instructions</h4>
+              <div className="space-y-4">
+                {r.steps?.map((step, i) => (
+                  <div key={i} className="flex gap-4">
+                    <span className="w-6 h-6 rounded-full bg-orange-400 text-white font-extrabold text-[11px] flex items-center justify-center shrink-0 shadow-sm mt-0.5">{i+1}</span>
+                    <p className="text-xs text-stone-700 leading-relaxed font-semibold">{step}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Feeding tip */}
+            {r.tip && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs leading-relaxed flex gap-3">
+                <span className="text-xl">💡</span>
+                <div className="text-stone-700 font-semibold">
+                  <strong className="text-amber-800">Pediatric Chef Pro-Tip:</strong> {r.tip}
+                </div>
+              </div>
+            )}
+
+            {/* Storage timeline rules */}
+            {r.storageNote && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs leading-relaxed flex gap-3">
+                <span className="text-xl">🧊</span>
+                <div className="text-stone-700 font-semibold">
+                  <strong className="text-blue-800">Fresh Preservation Guidelines:</strong> {r.storageNote}
+                </div>
+              </div>
+            )}
+
+            {/* Safe ingredients to introduce next */}
+            {r.nextFoods && (
+              <div className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-4 text-xs leading-relaxed space-y-2">
+                <strong className="text-emerald-800 block">🌱 Allergen-safe next ingredients to add tomorrow:</strong>
+                <div className="flex gap-1.5 flex-wrap">
+                  {r.nextFoods.map((f, i) => (
+                    <span key={i} className="bg-white border border-emerald-200 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[10px]">{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showSave && onSave && (
+              <button onClick={onSave} disabled={saving} className="w-full mt-2 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold rounded-xl text-sm transition-all shadow-md hover:opacity-95 disabled:opacity-45">
+                {saving ? "Saving to Safe Memory..." : "💾 Save to Safe Cookbook"}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function RatingModal({ showRatingModal, setShowRatingModal, ratingStars, setRatingStars, ratingTags, setRatingTags, ratingNote, setRatingNote, saveRating }) {
+      if (!showRatingModal) return null;
+      return (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl animate-slide-up space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-3">
+              <h3 className="serif-title font-extrabold text-stone-800 text-base">Rate: {showRatingModal.name}</h3>
+              <button onClick={() => setShowRatingModal(null)} className="text-stone-400 hover:text-stone-600 font-bold text-xl">✕</button>
+            </div>
+
+            <div className="text-center space-y-2">
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Pediatric Acceptance</span>
+              <div className="flex justify-center gap-3">
+                {[1,2,3].map(i => (
+                  <span key={i} onClick={() => setRatingStars(i)} className={`text-4xl cursor-pointer transition-all ${i <= ratingStars ? 'opacity-100' : 'opacity-20'}`}>⭐</span>
+                ))}
+              </div>
+              <div className="text-xs font-extrabold text-orange-400">
+                {ratingStars === 1 ? "Needs texture adjustment" : ratingStars === 2 ? "Accepted cleanly!" : ratingStars === 3 ? "All-time favorite! 🎉" : "Tap stars to rate"}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block">Classify Cook Labels</span>
+              <div className="grid grid-cols-2 gap-2">
+                {TAGS.map(t => {
+                  const hasTag = ratingTags.includes(t.id);
+                  return (
+                    <div key={t.id} onClick={() => setRatingTags(p => hasTag ? p.filter(x => x !== t.id) : [...p, t.id])}
+                      className={`p-2.5 rounded-xl border text-center text-xs font-bold cursor-pointer transition-all ${hasTag ? 'bg-stone-100 scale-[1.01]' : 'bg-stone-50 border-stone-200'}`} style={{color: hasTag ? t.color : '#57534E', borderColor: hasTag ? t.color : '#E7E5E4'}}>
+                      {t.label}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-widest block">Allergy or texture cooking notes</span>
+              <textarea value={ratingNote} onChange={e => setRatingNote(e.target.value)} placeholder="e.g. Added soft broccoli florets, loved it!" rows={3} className="w-full px-4 py-3 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold leading-normal outline-none focus:ring-2 focus:ring-orange-400 resize-none" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 pt-2">
+              <button onClick={() => setShowRatingModal(null)} className="py-3 border border-stone-200 text-stone-600 font-bold rounded-xl text-xs hover:bg-stone-50">Cancel</button>
+              <button onClick={saveRating} disabled={ratingStars === 0} className="py-3 bg-orange-400 hover:bg-orange-500 text-white font-extrabold rounded-xl text-xs disabled:opacity-40">Save Review</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Toast({ toast }) {
+      if (!toast) return null;
+      return (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs font-bold py-3 px-6 rounded-full shadow-lg z-50 whitespace-nowrap border border-stone-800 animate-fade-in">
+          {toast}
+        </div>
+      );
+    }
+
+    function BottomNav({ mode, setMode, plannerView, setPlannerView, messages, setMessages, goHome }) {
+      const navItems = [
+        {id: "home", icon: "🏠", label: "Home"},
+        {id: "recipe", icon: "🍽️", label: "Recipe"},
+        {id: "chat", icon: "💬", label: "Chat"},
+        {id: "cookbook", icon: "📖", label: "Book"},
+        {id: "tracker", icon: "🥕", label: "Tracker"},
+        {id: "planner", icon: "📅", label: "Planner"},
+        {id: "shopping", icon: "🛒", label: "List"}
+      ];
+
+      function isActive(id) {
+        if (id === "shopping") return mode === "planner" && plannerView === "shopping";
+        return mode === id;
+      }
+
+      function handleClick(id) {
+        if (id === "home") {
+          goHome();
+        } else if (id === "shopping") {
+          setMode("planner");
+          setPlannerView("shopping");
+        } else {
+          setMode(id);
+          if (id === "chat" && messages.length === 0) {
+            setMessages([{ role: "assistant", content: "<p>Hello! I am your developmental pediatrician and infant nutrition chatbot. How can I guide you today? 👶</p>", isHtml: true }]);
+          }
+        }
+      }
+
+      return (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 py-3.5 px-2 flex justify-around items-center z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.02)]">
+          {navItems.map(item => {
+            const active = isActive(item.id);
+            return (
+              <button key={item.id} onClick={() => handleClick(item.id)} className="flex flex-col items-center gap-1.5 focus:outline-none relative group shrink-0">
+                <span className={`text-xl transition-all ${active ? 'scale-110' : 'opacity-40 group-hover:opacity-75'}`}>{item.icon}</span>
+                <span className={`text-[9px] font-bold tracking-tight uppercase transition-all ${active ? 'text-orange-500 font-extrabold' : 'text-stone-400 group-hover:text-stone-600'}`}>{item.label}</span>
+                {active && (
+                  <span className="absolute -bottom-1 w-5 h-1 bg-orange-400 rounded-full"></span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Mount setup
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<BabyFoodApp />);
+  </script>
+</body>
+</html>
